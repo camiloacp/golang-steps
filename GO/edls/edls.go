@@ -25,9 +25,9 @@ const (
 	gif = ".gif"
 )
 
-type Archivo struct {
+type file struct {
 	name             string
-	filetype         int
+	fileType         int
 	isDir            bool
 	isHidden         bool
 	userName         string

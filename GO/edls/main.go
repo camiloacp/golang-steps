@@ -5,13 +5,21 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"regexp"
+	"runtime"
+	"strings"
+	"time"
 )
+
+const Windows = "windows"
+const Linux = "linux"
+const Mac = "mac"
 
 func main() {
 	// filter patterns
-	// flagPattern := flag.String("p", "", "filter by pattern")
+	flagPattern := flag.String("p", "", "filter by pattern")
 	// flagAll := flag.Bool("a", false, "all files including hidden files")
-	// flagNumerRecords := flag.Int("n", 0, "number of records")
+	flagNumberRecords := flag.Int("n", 0, "number of records")
 
 	// orden flags
 	// hasOrderByTime := flag.Bool("t", false, "sort by time, oldest first")
@@ -37,10 +45,23 @@ func main() {
 			panic(err)
 		}
 
+		isMatched, err := regexp.MatchString("(?i)"+*flagPattern, f.name)
+		if err != nil {
+			panic(err)
+		}
+
+		if !isMatched {
+			continue
+		}
+
 		fs = append(fs, f)
 	}
 
-	fmt.Println(fs)
+	if *flagNumberRecords == 0 || *flagNumberRecords > len(fs) {
+		*flagNumberRecords = len(fs)
+	}
+
+	printList(fs, *flagNumberRecords)
 
 	// fmt.Println("pattern:", *flagPattern)
 	// fmt.Println("all:", *flagAll)
@@ -48,6 +69,15 @@ func main() {
 	// fmt.Println("hasOrderByTime:", *hasOrderByTime)
 	// fmt.Println("hasOrderBySize:", *hasOrderBySize)
 	// fmt.Println("hasOrderReverse:", *hasOrderReverse)
+}
+
+func printList(fs []file, nRecords int) {
+	for _, file := range fs[:nRecords] {
+		style := mapStyleByFileType[file.fileType]
+		fmt.Printf("%s %s %s %10d %s %s %s %s\n", file.mode, file.userName,
+			file.groupName, file.size, file.modificationTime.Format(time.DateTime),
+			style.icon, file.name, style.symbol)
+	}
 }
 
 func getFile(dir fs.DirEntry, isHidden bool) (file, error) {
@@ -68,7 +98,51 @@ func getFile(dir fs.DirEntry, isHidden bool) (file, error) {
 		mode:             info.Mode().String(),
 	}
 
+	setFile(&f)
+
 	return f, nil
+}
+
+func setFile(f *file) {
+	switch {
+	case isLink(*f):
+		f.fileType = fileLink
+	case f.isDir:
+		f.fileType = fileDirectory
+	case isExecutable(*f):
+		f.fileType = fileExecutable
+	case isCompress(*f):
+		f.fileType = fileCompress
+	case isImage(*f):
+		f.fileType = fileImage
+	default:
+		f.fileType = fileRegular
+	}
+}
+
+func isLink(f file) bool {
+	return strings.HasPrefix(strings.ToUpper(f.mode), "L")
+}
+
+func isExecutable(f file) bool {
+	if runtime.GOOS == Windows {
+		return strings.HasSuffix(f.mode, exe)
+	}
+	return strings.Contains(f.mode, "x")
+}
+
+func isCompress(f file) bool {
+	return strings.HasSuffix(f.name, zip) ||
+		strings.HasSuffix(f.name, gz) ||
+		strings.HasSuffix(f.name, tar) ||
+		strings.HasSuffix(f.name, rar) ||
+		strings.HasSuffix(f.name, deb)
+}
+
+func isImage(f file) bool {
+	return strings.HasSuffix(f.name, png) ||
+		strings.HasSuffix(f.name, jpg) ||
+		strings.HasSuffix(f.name, gif)
 }
 
 // go mod init main
