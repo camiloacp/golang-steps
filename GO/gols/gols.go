@@ -6,9 +6,12 @@ import (
 	"github.com/fatih/color"
 )
 
+// FileType represents the type of a file entry
+type FileType int
+
 // file types
 const (
-	fileRegular int = iota
+	fileRegular FileType = iota
 	fileDirectory
 	fileExecutable
 	fileCompress
@@ -31,7 +34,7 @@ const (
 
 type file struct {
 	name             string
-	fileType         int
+	fileType         FileType
 	isDir            bool
 	isHidden         bool
 	userName         string
@@ -47,7 +50,7 @@ type styleFileType struct {
 	symbol string
 }
 
-var mapStyleByFileType = map[int]styleFileType{
+var mapStyleByFileType = map[FileType]styleFileType{
 	fileRegular:    {icon: "📄"},
 	fileDirectory:  {icon: "🗂️", color: color.FgBlue, symbol: "/"},
 	fileExecutable: {icon: "🚀", color: color.FgGreen, symbol: "*"},

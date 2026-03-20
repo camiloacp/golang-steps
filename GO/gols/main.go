@@ -33,40 +33,43 @@ func main() {
 	hasOrderReverse := flag.Bool("r", false, "reverse order while sorting")
 
 	flag.Parse()
-	path := flag.Arg(0)
-	if path == "" {
-		path = "."
+	dirPath := flag.Arg(0)
+	if dirPath == "" {
+		dirPath = "."
 	}
 
-	dirs, err := os.ReadDir(path)
+	dirs, err := os.ReadDir(dirPath)
 	if err != nil {
-		panic(err)
+		fmt.Fprintf(os.Stderr, "error reading directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	var pattern *regexp.Regexp
+	if *flagPattern != "" {
+		pattern, err = regexp.Compile("(?i)" + *flagPattern)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "invalid pattern: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	fs := []file{}
 
 	for _, dir := range dirs {
-		isHidden := isHidden(dir.Name(), path)
+		isHidden := isHidden(dir.Name(), dirPath)
 
 		if isHidden && !*flagAll {
 			continue
 		}
 
-		if *flagPattern != "" {
-
-			isMatched, err := regexp.MatchString("(?i)"+*flagPattern, dir.Name())
-			if err != nil {
-				panic(err)
-			}
-
-			if !isMatched {
-				continue
-			}
+		if pattern != nil && !pattern.MatchString(dir.Name()) {
+			continue
 		}
 
 		f, err := getFile(dir, isHidden)
 		if err != nil {
-			panic(err)
+			fmt.Fprintf(os.Stderr, "error getting file info: %v\n", err)
+			os.Exit(1)
 		}
 
 		fs = append(fs, f)
@@ -147,7 +150,7 @@ func getFile(dir fs.DirEntry, isHidden bool) (file, error) {
 
 	f := file{
 		name:             dir.Name(),
-		fileType:         0,
+		fileType:         fileRegular,
 		isDir:            dir.IsDir(),
 		isHidden:         isHidden,
 		userName:         userName,
