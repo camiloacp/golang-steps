@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"regexp"
 	"runtime"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/AJRDRGZ/fileinfo"
+	"github.com/fatih/color"
 	"golang.org/x/exp/constraints"
 )
 
@@ -128,9 +131,9 @@ func orderBySize(files []file, isReverse bool) {
 func printList(fs []file, nRecords int) {
 	for _, file := range fs[:nRecords] {
 		style := mapStyleByFileType[file.fileType]
-		fmt.Printf("%s %s %s %10d %s %s %s %s\n", file.mode, file.userName,
+		fmt.Printf("%s %s %s %10d %s %s %s %s %s\n", file.mode, file.userName,
 			file.groupName, file.size, file.modificationTime.Format(time.DateTime),
-			style.icon, file.name, style.symbol)
+			style.icon, setColor(file.name, style.color), style.symbol, markHidden(file.isHidden))
 	}
 }
 
@@ -140,13 +143,15 @@ func getFile(dir fs.DirEntry, isHidden bool) (file, error) {
 		return file{}, fmt.Errorf("dir.Info(): %w", err)
 	}
 
+	userName, groupName := fileinfo.GetUserAndGroup(info.Sys())
+
 	f := file{
 		name:             dir.Name(),
 		fileType:         0,
 		isDir:            dir.IsDir(),
 		isHidden:         isHidden,
-		userName:         "123",
-		groupName:        "edls",
+		userName:         userName,
+		groupName:        groupName,
 		size:             info.Size(),
 		modificationTime: info.ModTime(),
 		mode:             info.Mode().String(),
@@ -172,6 +177,22 @@ func setFile(f *file) {
 	default:
 		f.fileType = fileRegular
 	}
+}
+
+func setColor(nameFile string, styleColor color.Attribute) string {
+	switch styleColor {
+	case color.FgBlue:
+		return blue(nameFile)
+	case color.FgGreen:
+		return green(nameFile)
+	case color.FgRed:
+		return red(nameFile)
+	case color.FgMagenta:
+		return magenta(nameFile)
+	case color.FgCyan:
+		return cyan(nameFile)
+	}
+	return nameFile
 }
 
 func isLink(f file) bool {
@@ -200,7 +221,18 @@ func isImage(f file) bool {
 }
 
 func isHidden(fileName, basePath string) bool {
-	return strings.HasPrefix(fileName, ".")
+	filePath := fileName
+	if runtime.GOOS == Windows {
+		filePath = path.Join(basePath, fileName)
+	}
+	return fileinfo.IsHidden(filePath)
+}
+
+func markHidden(isHidden bool) string {
+	if !isHidden {
+		return ""
+	}
+	return yellow("∅")
 }
 
 // go mod init main
